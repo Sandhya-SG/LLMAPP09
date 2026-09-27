@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock
 
+import httpx
 import pytest
 
 from app.router.model_router import ModelRouter, TaskType
@@ -340,3 +341,63 @@ class TestJsonParsingEdgeCases:
         assert "labels" in prompt
         assert "primaryCategory" in prompt
         assert "confidence" in prompt
+
+
+def _ok_response(response_text: str):
+    mock_response = MagicMock()
+    mock_response.json.return_value = {"message": {"content": response_text}}
+    mock_response.raise_for_status = MagicMock()
+    return mock_response
+
+
+def _error_response(status_code: int):
+    mock_response = MagicMock()
+    mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+        "upstream error", request=MagicMock(), response=MagicMock(status_code=status_code)
+    )
+    return mock_response
+
+
+SENTIMENT_JSON = '{"overallSentiment": "positive", "sentimentScore": 0.8, "emotions": ["joy"], "confidence": 0.9}'
+
+
+class TestRetry:
+    @pytest.fixture(autouse=True)
+    def no_backoff(self, ai_service):
+        ai_service.retry_backoff = 0
+
+    def test_retries_on_rate_limit(self, ai_service, mock_http_client):
+        mock_http_client.post.side_effect = [_error_response(429), _ok_response(SENTIMENT_JSON)]
+
+        result = ai_service.analyze_sentiment("I love it")
+
+        assert result.overallSentiment == "positive"
+        assert mock_http_client.post.call_count == 2
+
+    def test_retries_on_server_error(self, ai_service, mock_http_client):
+        mock_http_client.post.side_effect = [_error_response(503), _ok_response(SENTIMENT_JSON)]
+
+        result = ai_service.analyze_sentiment("I love it")
+
+        assert result.overallSentiment == "positive"
+
+    def test_retries_on_unparseable_output(self, ai_service, mock_http_client):
+        mock_http_client.post.side_effect = [_ok_response("not json"), _ok_response(SENTIMENT_JSON)]
+
+        result = ai_service.analyze_sentiment("I love it")
+
+        assert result.overallSentiment == "positive"
+
+    def test_does_not_retry_client_error(self, ai_service, mock_http_client):
+        mock_http_client.post.side_effect = [_error_response(402)]
+
+        with pytest.raises(httpx.HTTPStatusError):
+            ai_service.analyze_sentiment("I love it")
+        assert mock_http_client.post.call_count == 1
+
+    def test_gives_up_after_max_attempts(self, ai_service, mock_http_client):
+        mock_http_client.post.side_effect = [_error_response(500)] * ai_service.max_attempts
+
+        with pytest.raises(httpx.HTTPStatusError):
+            ai_service.analyze_sentiment("I love it")
+        assert mock_http_client.post.call_count == ai_service.max_attempts

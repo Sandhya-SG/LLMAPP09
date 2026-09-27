@@ -14,7 +14,14 @@ from app.router.model_router import ModelRouter, TaskType, model_router
 
 langfuse = get_client()
 
+# Upstream statuses worth retrying: rate limiting and transient server errors
+_RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+
+
 class AIService:
+    max_attempts: int = 3
+    retry_backoff: float = 1.0
+
     def __init__(
         self,
         http_client: httpx.Client | None = None,
@@ -70,6 +77,25 @@ class AIService:
 
         return content
 
+    def _chat_and_validate(self, prompt: str, model: str, task_type: str, model_class):
+        """Calls the model and validates its output, retrying transient upstream
+        errors (with backoff) and unparseable responses (immediately)."""
+        for attempt in range(1, self.max_attempts + 1):
+            try:
+                response = self._chat(prompt, model, task_type=task_type)
+                return guardrails_engine.validate_output(response, model_class, task_type=task_type)
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code not in _RETRYABLE_STATUS or attempt == self.max_attempts:
+                    raise
+                time.sleep(self.retry_backoff * attempt)
+            except httpx.TransportError:
+                if attempt == self.max_attempts:
+                    raise
+                time.sleep(self.retry_backoff * attempt)
+            except RuntimeError:
+                if attempt == self.max_attempts:
+                    raise
+
     def classify_text(self, text: str) -> ClassificationResponse:
         model = self.router.get_model(TaskType.CLASSIFY)
         prompt = (
@@ -79,8 +105,7 @@ class AIService:
             "Return JSON in this exact format:\n"
             '{"labels": ["label1", "label2"], "primaryCategory": "category", "confidence": 0.9}'
         )
-        response = self._chat(prompt, model, task_type="classify")
-        return guardrails_engine.validate_output(response, ClassificationResponse, task_type="classify")
+        return self._chat_and_validate(prompt, model, "classify", ClassificationResponse)
 
     def analyze_sentiment(self, text: str) -> SentimentResponse:
         model = self.router.get_model(TaskType.SENTIMENT)
@@ -112,8 +137,7 @@ class AIService:
             '{"overallSentiment": "positive|negative|neutral|mixed", "sentimentScore": 0.0, '
             '"emotions": ["emotion1", "emotion2"], "confidence": 0.9}'
         )
-        response = self._chat(prompt, model, task_type="sentiment")
-        return guardrails_engine.validate_output(response, SentimentResponse, task_type="sentiment")
+        return self._chat_and_validate(prompt, model, "sentiment", SentimentResponse)
 
     def summarize_text(self, text: str) -> SummaryResponse:
         model = self.router.get_model(TaskType.SUMMARIZE)
@@ -124,8 +148,7 @@ class AIService:
             "Return JSON in this exact format:\n"
             '{"summary": "your summary here", "keyPoints": ["point1", "point2", "point3"], "wordCount": 25}'
         )
-        response = self._chat(prompt, model, task_type="summarize")
-        return guardrails_engine.validate_output(response, SummaryResponse, task_type="summarize")
+        return self._chat_and_validate(prompt, model, "summarize", SummaryResponse)
 
     def detect_intent(self, text: str) -> IntentResponse:
         model = self.router.get_model(TaskType.INTENT)
@@ -154,5 +177,4 @@ class AIService:
             '{"primaryIntent": "specific purpose description", "secondaryIntents": ["intent1"], '
             '"intentCategory": "question", "confidence": 0.9}'
         )
-        response = self._chat(prompt, model, task_type="intent")
-        return guardrails_engine.validate_output(response, IntentResponse, task_type="intent")
+        return self._chat_and_validate(prompt, model, "intent", IntentResponse)
