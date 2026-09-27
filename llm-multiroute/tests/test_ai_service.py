@@ -402,6 +402,14 @@ class TestRetry:
             ai_service.analyze_sentiment("I love it")
         assert mock_http_client.post.call_count == ai_service.max_attempts
 
+    def test_retries_on_timeout(self, ai_service, mock_http_client):
+        mock_http_client.post.side_effect = [httpx.ReadTimeout("timed out"), _ok_response(SENTIMENT_JSON)]
+
+        result = ai_service.analyze_sentiment("I love it")
+
+        assert result.overallSentiment == "positive"
+        assert mock_http_client.post.call_count == 2
+
 
 class TestRequestOptions:
     def test_temperature_sent_in_options(self, ai_service, mock_http_client):

@@ -27,7 +27,7 @@ class AIService:
         http_client: httpx.Client | None = None,
         router: ModelRouter | None = None,
     ):
-        self.http_client = http_client or httpx.Client(timeout=120.0)
+        self.http_client = http_client or httpx.Client(timeout=settings.OLLAMA_TIMEOUT)
         self.base_url = settings.OLLAMA_BASE_URL
         self.temperature = settings.OLLAMA_TEMPERATURE
         self.api_key = settings.OLLAMA_API_KEY

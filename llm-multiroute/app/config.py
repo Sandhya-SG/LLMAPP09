@@ -11,6 +11,9 @@ class Settings:
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "https://ollama.com")
     OLLAMA_TEMPERATURE: float = float(os.getenv("OLLAMA_TEMPERATURE", "0.7"))
     OLLAMA_API_KEY: str = os.getenv("OLLAMA_API_KEY", "")
+    # Per-attempt timeout for Ollama calls. Kept short so all retry attempts
+    # (see AIService.max_attempts) finish before a 120s client timeout.
+    OLLAMA_TIMEOUT: float = float(os.getenv("OLLAMA_TIMEOUT", "30"))
 
     # Per-route model assignments (must be available on Ollama cloud)
     OLLAMA_MODEL_CLASSIFY: str = os.getenv("OLLAMA_MODEL_CLASSIFY", "gemma4:31b")
