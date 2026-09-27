@@ -54,7 +54,7 @@ class AIService:
                 "model": model,
                 "messages": [{"role": "user", "content": prompt}],
                 "stream": False,
-                "temperature": self.temperature,
+                "options": {"temperature": self.temperature},
             },
         )
         response.raise_for_status()

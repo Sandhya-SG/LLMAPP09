@@ -401,3 +401,15 @@ class TestRetry:
         with pytest.raises(httpx.HTTPStatusError):
             ai_service.analyze_sentiment("I love it")
         assert mock_http_client.post.call_count == ai_service.max_attempts
+
+
+class TestRequestOptions:
+    def test_temperature_sent_in_options(self, ai_service, mock_http_client):
+        _setup_chat_response(mock_http_client, SENTIMENT_JSON)
+        ai_service.temperature = 0.3
+
+        ai_service.analyze_sentiment("I love it")
+
+        body = mock_http_client.post.call_args.kwargs["json"]
+        assert body["options"] == {"temperature": 0.3}
+        assert "temperature" not in body
