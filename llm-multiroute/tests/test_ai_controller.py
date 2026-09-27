@@ -259,9 +259,9 @@ class TestRoutesEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert data["classify"] == "gemma4:31b"
-        assert data["sentiment"] == "glm-5.2"
-        assert data["summarize"] == "mistral-large-3:675b"
-        assert data["intent"] == "minimax-m3"
+        assert data["sentiment"] == "gpt-oss:120b"
+        assert data["summarize"] == "nemotron-3-super"
+        assert data["intent"] == "gpt-oss:20b"
 
 
 class TestRequestValidation:

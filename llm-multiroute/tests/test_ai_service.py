@@ -16,9 +16,9 @@ def mock_router():
     router = MagicMock(spec=ModelRouter)
     router.get_model.side_effect = lambda t: {
         TaskType.CLASSIFY: "gemma4:31b",
-        TaskType.SENTIMENT: "glm-5.2",
-        TaskType.SUMMARIZE: "mistral-large-3:675b",
-        TaskType.INTENT: "minimax-m3",
+        TaskType.SENTIMENT: "gpt-oss:120b",
+        TaskType.SUMMARIZE: "nemotron-3-super",
+        TaskType.INTENT: "gpt-oss:20b",
     }[t]
     return router
 
@@ -112,7 +112,7 @@ class TestAnalyzeSentiment:
 
         call_args = mock_http_client.post.call_args
         body = call_args.kwargs.get("json") or call_args[1].get("json")
-        assert body["model"] == "glm-5.2"
+        assert body["model"] == "gpt-oss:120b"
 
     def test_negative_sentiment(self, ai_service, mock_http_client):
         json_response = '{"overallSentiment": "negative", "sentimentScore": -0.75, "emotions": ["anger", "disappointment"], "confidence": 0.88}'
@@ -163,7 +163,7 @@ class TestSummarizeText:
 
         call_args = mock_http_client.post.call_args
         body = call_args.kwargs.get("json") or call_args[1].get("json")
-        assert body["model"] == "mistral-large-3:675b"
+        assert body["model"] == "nemotron-3-super"
 
     def test_single_key_point(self, ai_service, mock_http_client):
         json_response = '{"summary": "Brief summary.", "keyPoints": ["Main point"], "wordCount": 2}'
@@ -210,7 +210,7 @@ class TestDetectIntent:
 
         call_args = mock_http_client.post.call_args
         body = call_args.kwargs.get("json") or call_args[1].get("json")
-        assert body["model"] == "minimax-m3"
+        assert body["model"] == "gpt-oss:20b"
 
     def test_command_intent(self, ai_service, mock_http_client):
         json_response = '{"primaryIntent": "turn_off_lights", "secondaryIntents": ["smart_home"], "intentCategory": "command", "confidence": 0.95}'
@@ -280,9 +280,9 @@ class TestModelRoutingIntegration:
 
         tasks_and_models = [
             (lambda: service.classify_text("text"), "gemma4:31b"),
-            (lambda: service.analyze_sentiment("text"), "glm-5.2"),
-            (lambda: service.summarize_text("text"), "mistral-large-3:675b"),
-            (lambda: service.detect_intent("text"), "minimax-m3"),
+            (lambda: service.analyze_sentiment("text"), "gpt-oss:120b"),
+            (lambda: service.summarize_text("text"), "nemotron-3-super"),
+            (lambda: service.detect_intent("text"), "gpt-oss:20b"),
         ]
 
         responses = [

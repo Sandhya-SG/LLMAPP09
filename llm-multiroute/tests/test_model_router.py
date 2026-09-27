@@ -13,17 +13,17 @@ class TestModelRouter:
     def test_get_model_sentiment(self):
         router = ModelRouter()
         model = router.get_model(TaskType.SENTIMENT)
-        assert model == "glm-5.2"
+        assert model == "gpt-oss:120b"
 
     def test_get_model_summarize(self):
         router = ModelRouter()
         model = router.get_model(TaskType.SUMMARIZE)
-        assert model == "mistral-large-3:675b"
+        assert model == "nemotron-3-super"
 
     def test_get_model_intent(self):
         router = ModelRouter()
         model = router.get_model(TaskType.INTENT)
-        assert model == "minimax-m3"
+        assert model == "gpt-oss:20b"
 
     def test_get_routes_returns_all_tasks(self):
         router = ModelRouter()
@@ -38,9 +38,9 @@ class TestModelRouter:
         router = ModelRouter()
         routes = router.get_routes()
         assert routes["classify"] == "gemma4:31b"
-        assert routes["sentiment"] == "glm-5.2"
-        assert routes["summarize"] == "mistral-large-3:675b"
-        assert routes["intent"] == "minimax-m3"
+        assert routes["sentiment"] == "gpt-oss:120b"
+        assert routes["summarize"] == "nemotron-3-super"
+        assert routes["intent"] == "gpt-oss:20b"
 
     def test_each_task_has_unique_model(self):
         router = ModelRouter()
